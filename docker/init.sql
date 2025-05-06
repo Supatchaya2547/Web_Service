@@ -21,26 +21,24 @@ CREATE TABLE courses_url(
     FOREIGN KEY (course_id) REFERENCES courses(course_id)
 );
 
-
 CREATE TABLE affiliates (
-    affiliate_id SERIAL PRIMARY KEY,
+    affiliate_id VARCHAR(255) PRIMARY KEY,
     affiliate_name VARCHAR(255),
-    affiliate_email VARCHAR(255) UNIQUE,
-    affiliate_password VARCHAR(255)
+    affiliate_email VARCHAR(255) UNIQUE 
 );
 
 CREATE TABLE affiliate_url (
     url_id SERIAL PRIMARY KEY,
-    affiliate_id INT,
+    affiliate_id VARCHAR(255),
     aff_url VARCHAR(255),
     clicks INTEGER DEFAULT 0,
-    parameter TEXT,
     FOREIGN KEY (affiliate_id) REFERENCES affiliates(affiliate_id)
 );
 
 CREATE TABLE request_logs (
     id SERIAL PRIMARY KEY,
-    affiliate_id INT,  -- แก้เป็น INT เพื่อให้ตรงกับตาราง affiliates
+    affiliate_id VARCHAR(255) ,  
+    method VARCHAR(255) ,
     action VARCHAR(255),
     parameter TEXT,
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -48,9 +46,11 @@ CREATE TABLE request_logs (
 
 CREATE TABLE Click_logs (
     id SERIAL PRIMARY KEY,
-    affiliate_id INT NOT NULL,  -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
+    affiliate_id VARCHAR(255) NOT NULL,  -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
     course_id INT NOT NULL,     -- เพิ่ม NOT NULL เพื่อให้แน่ใจว่ามีค่า
+    action VARCHAR(255),
     click_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    clicks INTEGER DEFAULT 0,
     FOREIGN KEY (affiliate_id) REFERENCES affiliates(affiliate_id),
     FOREIGN KEY (course_id) REFERENCES courses(course_id)
 );
