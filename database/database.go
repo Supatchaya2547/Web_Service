@@ -5,14 +5,20 @@ import (
 	"fmt"
 	"log"
 
+	"onlinecourse/internal/config"
+
 	_ "github.com/lib/pq"
 )
 
 var DB *sql.DB
 
-func ConnectDB() {
+func ConnectDB(cfg config.Config) {
 	var err error
-	dsn := "host=0.0.0.0 user=webservice_user password=your_strong_password dbname=webservice sslmode=disable"
+	fmt.Println("0")
+	// dsn := "host=0.0.0.0 user=webservice_user password=your_strong_password dbname=webservice sslmode=disable"
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		cfg.POSTGRESHOST, cfg.POSTGRESUSER, cfg.POSTGRESPASSWORD, cfg.POSTGRESDB, cfg.POSTGRESPORT)
+
 	DB, err = sql.Open("postgres", dsn)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)

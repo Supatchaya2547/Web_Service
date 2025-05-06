@@ -1,5 +1,11 @@
 p, admin, /api/data, GET
 p, admin, /api/userdata, GET
+p, admin, /api/GetAllCourses, GET
+p, admin, /api/GetCoursesById, GET
 
 p, affiliate, /api/data, GET
 p, affiliate, /api/userdata, GET
+p, affiliate, /api/register, POST
+p, affiliate, /api/GetCoursesById, GET
+p, affiliate, /api/register_url, POST
+p, affiliate, /api/GetAllCourses, GET

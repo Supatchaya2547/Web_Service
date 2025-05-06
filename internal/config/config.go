@@ -6,6 +6,7 @@ import (
 )
 
 type Config struct {
+	POSTGRESHOST           string
 	POSTGRESDB             string
 	POSTGRESUSER           string
 	POSTGRESPASSWORD       string
@@ -17,12 +18,13 @@ type Config struct {
 
 func LoadConfig() Config {
 	return Config{
-		POSTGRESDB:             getEnv("POSTGRES_DB", "webservice"),
-		POSTGRESUSER:           getEnv("POSTGRES_USER", "webservice_user"),
-		POSTGRESPASSWORD:       getEnv("POSTGRES_PASSWORD", "your_strong_password"),
+		POSTGRESHOST:           getEnv("POSTGRES_HOST", "localhost"),
+		POSTGRESDB:             getEnv("POSTGRES_DB", "postgres"),
+		POSTGRESUSER:           getEnv("POSTGRES_USER", "postgres"),
+		POSTGRESPASSWORD:       getEnv("POSTGRES_PASSWORD", "postgres123"),
 		POSTGRESPORT:           getEnv("POSTGRES_PORT", "5432"),
-		PGADMINDEFAULTEMAIL:    getEnv("PGADMIN_DEFAULT_EMAIL", "nuttachot@hotmail.com"),
-		PGADMINDEFAULTPASSWORD: getEnv("PGADMIN_DEFAULT_PASSWORD", "password"),
+		PGADMINDEFAULTEMAIL:    getEnv("PGADMIN_DEFAULT_EMAIL", "admin@admin.com"),
+		PGADMINDEFAULTPASSWORD: getEnv("PGADMIN_DEFAULT_PASSWORD", "admin123"),
 		PGADMINPORT:            getEnv("PGADMIN_PORT", "5050"),
 	}
 }

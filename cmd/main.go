@@ -13,12 +13,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v4"
 
+	"onlinecourse/database"
+	"onlinecourse/internal/config"
 	"onlinecourse/internal/handlers"
 )
 
 // Public Key ในรูปแบบ PEM (คัดลอกจาก Keycloak) ----> รอเปลี่ยนเป็น .env แทน
 var publicKeyPEM = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvDi7UB9tY8lSbCMGZ3DuHDucEhar6P9Yt4KaHaC/d7rocrTWteM/i+0mpbaw5FgaIRztrgJ+llDuUhfdAPtea+pPtlQhYrSyZzSjN2okXiVwcXkFgQA2ks1ZMO98aUih6j7GOTuwy28OaP8Z6x3ZG+HBK9E4ZBENK3W64O2/XvdYOcz+nXoaifGdC5T4PlCB/ZM5irKyZafnd5p1DpAG6uBIxe/88WrxwGAmDwuwoNwE8qKwQ0OhU1It1UBsHYSbhKoAGBGNPR+N4TMn8R+PVAu5oDN+2f8Hif+IA1ker2RmO5gDbiWT6Jk6EtrqjAwExmpmnE41ELaM9N0g0bTD8wIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhsABuQtTPLAa62sT+JZKgnm0ly9AvsM0TGK33lcZi6TYlbwX5tVUs+phor3CaUoQEyBJEcvMxi6P5Y3y1qwadfe0dCyLT7TJEkon2IMzVWcrzQHP/p5i+Nu3n2I1efOr8IYrsrWrAl0Y6NTdL3XkrWNJhdb/3IfFBtEfHznvQ37aFXZS89qo80YTNeHMr85vjyvpNa2KWbQuVsLhkE+q2kUZOBAv7738M5fFQXWRGqUEtrvU2MoXFOpMgyYWuu8PzvWbDpHSWvWNL0l6ZZwbqCimBaZNAQyVXuebdhI6iP2dw7AhwHfqpvEvms17y/IobOw4i7A46AvoVckzodUsCwIDAQAB
 -----END PUBLIC KEY-----`
 
 // Global variable สำหรับเก็บ *rsa.PublicKey ที่แปลงแล้ว
@@ -52,8 +54,10 @@ func init() {
 }
 
 func main() {
+	cfg := config.LoadConfig()
+	database.ConnectDB(cfg)
+
 	r := gin.Default()
-	r.POST("/register", handlers.Register)
 	// เพิ่ม CORS middleware - ใช้ server ของ keycloak
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
@@ -63,24 +67,42 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// ข้อ 1 request ได้เฉพาะคนที่สมัคร ----> ยังไม่ทดลอง
+	// ข้อ 1 request ✅
 	protected := r.Group("/api")
+	r.GET("/getType", handlers.GetType)
+	r.GET("/getInts", handlers.GetInts)
+	r.GET("/GetCoursesById/:id", handlers.ClickLogHandler(), handlers.GetCourseByID)
 
 	//API ข้อ 1, 2
 	protected.Use(JWTAuthMiddleware())
 	{
+		// API บันทึกข้อมูลลงUserใหม่ DB
+		protected.POST("/register", handlers.Register)
+
 		// API ข้อ 3
 		protected.GET("/data", handlers.RequestLogMiddleware(), handlers.GetData)
+
+		// API show all course (All data)
+		protected.GET("/GetAllCourses", handlers.RequestLogMiddleware(), handlers.GetAllCourses)
+
+		// ข้อ 7
+		protected.POST("/ClickLog", handlers.ClickLogHandler())
 
 		//เอาไว้ดึงข้อมูล user
 		protected.GET("/userdata", func(c *gin.Context) {
 			username := c.GetString("username")
 			roles := c.GetStringSlice("roles")
+			email := c.GetString("email")
 			c.JSON(200, gin.H{
 				"username": username,
 				"roles":    roles,
+				"email":    email,
 			})
 		})
+
+		// Affiliate service ข้อ 2
+		protected.POST("/register_url", handlers.Url_Register)
+		protected.GET("/get_url", handlers.Get_Url)
 	}
 
 	r.Run(":8081")
@@ -91,7 +113,7 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		// debug
-		fmt.Println("🔑 Token Header : ", authHeader)
+		// fmt.Println("🔑 Token Header : ", authHeader)
 
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
 			c.JSON(401, gin.H{"error": "Unauthorized"})
@@ -142,6 +164,16 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+		// ดึง subject ID (user ID) จาก claims
+		subjectID, ok := claims["sub"].(string)
+		if !ok {
+			c.JSON(401, gin.H{"error": "Subject ID not found in token"})
+			c.Abort()
+			return
+		}
+
+		// เซ็ตค่า affiliate_id ใน context เป็นค่า subjectID
+		c.Set("affiliate_id", subjectID)
 
 		// ดึง roles จาก realm_access.roles ซึ่งอาจมีหลาย role
 		realmAccess, ok := claims["realm_access"].(map[string]interface{})
@@ -176,10 +208,15 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 				c.Abort()
 				return
 			}
+			// fmt.Println("permit : ", permit)
+			// fmt.Println("allowed : ", allowed)
+			// fmt.Println("role : ", role)
 			if permit {
+				fmt.Println("permit : ", permit)
 				allowed = true
 				break
 			}
+
 		}
 		if !allowed {
 			c.JSON(403, gin.H{"error": "Forbidden: Insufficient permissions"})
@@ -190,6 +227,15 @@ func JWTAuthMiddleware() gin.HandlerFunc {
 		// ส่ง username และ roles ไปยัง handler
 		c.Set("username", username)
 		c.Set("roles", rolesList)
+
+		// ดึง email
+		email, ok := claims["email"].(string)
+		if !ok {
+			email = ""
+			return
+		}
+		c.Set("email", email)
+
 		c.Next()
 	}
 }
